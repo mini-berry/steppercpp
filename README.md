@@ -3,6 +3,7 @@
 - 如果你使用Keil\
 如果你使用ac6：在编译器配置中增加-xc++ -std=c++11\
 项目不支持ac5，因为没有std::forward\
+你还需要注意，中断回调函数可能需要extern C来避免错误\
 eide配置相同
 - 如果你使用CMake\
 将main.c改为main.cpp\
