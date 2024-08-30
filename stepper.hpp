@@ -118,7 +118,7 @@ public:
     void SetReverse(bool value = true);
     // 配置最大速度高电平时间，配置最大速度低电平时间，最小速度低电平时间
     void SetAcc(const uint32_t &acc);
-    void Stepper::SetAccWay(uint8_t way);
+    void SetAccWay(uint8_t way);
     template <typename... Steppers>
     static void RunAll(Steppers &...steppers)
     {
