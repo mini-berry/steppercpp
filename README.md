@@ -2,7 +2,7 @@
 ## 使用指南
 - 如果你使用Keil\
 如果你使用ac6：在编译器配置中增加-xc++ -std=c++11\
-项目不支持ac5，因为没有std::forward
+项目不支持ac5，因为没有std::forward\
 eide配置相同
 - 如果你使用CMake\
 将main.c改为main.cpp\
@@ -11,7 +11,7 @@ eide配置相同
 - 配置引脚\
 需要一个dir_pin和一个pul_pin，提前配置为Output模式
 - 时钟配置\
-需要一个us定时器作为基准时钟，默认时tim7，分频71。重载值最大即可。\
+需要一个us定时器作为基准时钟，默认为tim7，分频71。重载值最大即可。\
 可能需要在.hpp文件中修改TIM_TYPE，默认uint16_t\
 如果你选的定时器最大为65535，可以不管\
 如果更大需要可选配置为更大位数（如F4系列板子，提供了更大的定时器）\
@@ -29,9 +29,9 @@ Stepper M(dirPort, dirPin, pulPort, pulPin)\
 #define HIGHATTACHTIME 250
 #define MAXATTACHTIME 20000
 ```
-.hpp宏定义可修改\
+.hpp内宏定义可修改\
 默认最大速度500，对应的高低电平时间为250。\
-默认最小速度低电平时就20000，改大此项可以有效改进加减速过程中的抖动。
+默认最小速度低电平时间20000，改大此项可以有效改进加减速过程中的抖动。
 - 加减速配置
 ``` cpp
 #define ACCFORM 0
@@ -58,6 +58,7 @@ M.SetReverse(false);
 会阻塞运行！需要改进可以添加中断定时执行M.Run()\
 最多带多少电机没试过，理论带50个没问题
 ## 例子
+共阳极接法
 ```cpp
 Stepper M(GPIOC, GPIO_PIN_5, GPIOC, GPIO_PIN_4);
 HAL_TIM_Base_Start(&htim7);
