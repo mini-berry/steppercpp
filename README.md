@@ -1,132 +1,73 @@
-# steppercpp
-A cpp library for stepper.
-
----
-
-# Stepper Motor Control Library
-
-## Overview
-
-This library provides a comprehensive solution for controlling stepper motors using STM32 microcontrollers. The `Stepper` class offers functionalities to manage motor acceleration, deceleration, speed control, and precise positioning. The library is designed to be flexible, allowing for control of multiple stepper motors simultaneously.
-
-## Features
-
-- **Precise Step Control:** Control stepper motor movement with fine granularity using GPIO pins.
-- **Acceleration and Deceleration:** Smooth acceleration and deceleration with customizable parameters.
-- **Direction Control:** Easily set and reverse motor direction.
-- **Microsecond Delay:** Accurate timing functions using hardware timers for precise motor control.
-- **Multi-Motor Synchronization:** Manage multiple motors simultaneously using template functions.
-
-## Getting Started
-
-### Prerequisites
-
-- STM32 microcontroller (e.g., STM32F4 series)
-- STM32 HAL Library
-- TIM peripherals configured for microsecond timing
-- A development environment (e.g., STM32CubeIDE)
-
-### Installation
-
-1. Clone or download this repository to your local development environment.
-2. Include the `stepper.h` and `stepper.cpp` files in your STM32 project.
-3. Make sure to configure your hardware timers and GPIO pins correctly according to your microcontroller's setup.
-
-### Configuration
-
-#### Timer Configuration
-
-The library requires a hardware timer to generate microsecond delays. Ensure that your timer is initialized correctly in your `main.c` or equivalent file:
-
+# 基于C++的STM32步进电机库
+## 使用指南
+- 如果你使用Keil\
+如果你使用ac6：在编译器配置中增加-xc++ -std=c++11\
+项目不支持ac5，因为没有std::forward
+eide配置相同
+- 如果你使用CMake\
+将main.c改为main.cpp\
+在cmake文件夹的.cmake文件中将main.c改为main.cpp
+## 函数使用方法
+- 配置引脚\
+需要一个dir_pin和一个pul_pin，提前配置为Output模式
+- 时钟配置\
+需要一个us定时器作为基准时钟，默认时tim7，分频71。重载值最大即可。\
+可能需要在.hpp文件中修改TIM_TYPE，默认uint16_t\
+如果你选的定时器最大为65535，可以不管\
+如果更大需要可选配置为更大位数（如F4系列板子，提供了更大的定时器）\
+别忘了开启定时器！
 ```cpp
-void usInit()
+HAL_TIM_Base_Start(&US_TIM);
+```
+- 新建电机对象\
+Stepper M(dirPort, dirPin, pulPort, pulPin)\
+填入GPIOA,GPIO_PIN_5之类即可
+- 设置速度
+``` cpp
+#define MAXSPEED 500
+#define HIGHTIME 250
+#define HIGHATTACHTIME 250
+#define MAXATTACHTIME 20000
+```
+.hpp宏定义可修改\
+默认最大速度500，对应的高低电平时间为250。\
+默认最小速度低电平时就20000，改大此项可以有效改进加减速过程中的抖动。
+- 加减速配置
+``` cpp
+#define ACCFORM 0
+```
+提供两种加速方式\
+0：每个脉冲改变速度，根据速度计算时间\
+1：每个脉冲改变时间，固定减少一定时间\
+可以通过M.SetAccWay(0)设置
+- 目标设置
+``` cpp
+M.SetTarget(100);
+```
+- 反转设置
+``` cpp
+M.SetReverse();
+```
+关闭
+``` cpp
+M.SetReverse(false);
+```
+- 运行\
+执行Stepper::RunAll(M)即可\
+多个电机可以执行Stepper::RunAll(M1,M2...)\
+会阻塞运行！需要改进可以添加中断定时执行M.Run()\
+最多带多少电机没试过，理论带50个没问题
+## 例子
+```cpp
+Stepper M(GPIOC, GPIO_PIN_5, GPIOC, GPIO_PIN_4);
+HAL_TIM_Base_Start(&htim7);
+while (1)
 {
-    HAL_TIM_Base_Start(&US_TIM);
-}
-```
-
-#### GPIO Configuration
-
-You must configure the GPIO pins that will be used to control the stepper motor's direction and pulse signals. The pins should be defined when creating a `Stepper` object.
-
-### Usage
-
-#### Creating a Stepper Object
-
-To control a stepper motor, create a `Stepper` object with the appropriate GPIO ports and pins:
-
-```cpp
-#include "stepper.h"
-
-// Initialize the stepper motor
-Stepper stepper(GPIOA, GPIO_PIN_0, GPIOA, GPIO_PIN_1);
-```
-
-#### Setting Target Position and Running the Motor
-
-Set the target position and run the motor:
-
-```cpp
-// Set the target position
-stepper.SetTarget(1000);
-
-// Run the motor to the target position
-while (!stepper.Run()) {
-    // Do something else if needed
-}
-```
-
-#### Configuring Motor Parameters
-
-You can customize the motor's speed, acceleration, and pulse timing:
-
-```cpp
-stepper.SetMaxSpeed(500);
-stepper.SetAcc(10);
-stepper.configure(500, 500, 45000);
-```
-
-#### Reversing Motor Direction
-
-To reverse the motor's direction:
-
-```cpp
-stepper.SetReverse(true); // Reverse direction
-```
-
-### Example
-
-Here is a simple example to control a single stepper motor:
-
-```cpp
-#include "main.h"
-#include "stepper.h"
-
-int main(void)
-{
-    HAL_Init();
-    SystemClock_Config();
-    MX_GPIO_Init();
-    MX_TIM7_Init();  // Assuming TIM7 is used for microsecond timing
-
-    usInit();
-
-    // Initialize the stepper motor
-    Stepper stepper(GPIOA, GPIO_PIN_0, GPIOA, GPIO_PIN_1);
-
-    // Set motor parameters
-    stepper.SetMaxSpeed(1000);
-    stepper.SetAcc(20);
-
-    // Set the target position
-    stepper.SetTarget(2000);
-
-    // Run the motor to the target position
-    while (!stepper.Run()) {
-        // Other code can run here
-    }
-
-    while (1) {
-    }
+    M.SetTarget(1000);
+    Stepper::RunAll(M);
+    HAL_Delay(1000);
+    M.SetTarget(0);
+    Stepper::RunAll(M);
+    HAL_Delay(1000);
 }
 ```

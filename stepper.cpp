@@ -1,5 +1,4 @@
-#include "stepper.h"
-#include "debug.h"
+#include "stepper.hpp"
 
 // #define DEBUG
 void usInit()
@@ -9,7 +8,8 @@ void usInit()
 inline void delayUs(TIM_TYPE us)
 {
     TIM_TYPE now = GetUsTick();
-    while ((TIM_TYPE)(GetUsTick() - now) < us);
+    while ((TIM_TYPE)(GetUsTick() - now) < us)
+        ;
 }
 inline TIM_TYPE GetUsTick()
 {
@@ -18,9 +18,9 @@ inline TIM_TYPE GetUsTick()
 Stepper::Stepper(GPIO_TypeDef *dirPort, uint16_t dirPin, GPIO_TypeDef *pulPort, uint16_t pulPin)
 {
     _dirPort = dirPort;
-    _dirPin  = dirPin;
+    _dirPin = dirPin;
     _pulPort = pulPort;
-    _pulPin  = pulPin;
+    _pulPin = pulPin;
 }
 void Stepper::SetTarget(int32_t targetPos)
 {
@@ -36,31 +36,43 @@ void Stepper::SetAcc(uint32_t Acc)
 }
 void Stepper::slowdown()
 {
-    if (_speed > 0) {
+    if (_speed > 0)
+    {
         _speed -= _accelSpeed;
-        if (_speed < 0) {
+        if (_speed < 0)
+        {
             _speed = 0;
         }
-    } else {
+    }
+    else
+    {
         _speed += _accelSpeed;
-        if (_speed > 0) {
+        if (_speed > 0)
+        {
             _speed = 0;
         }
     }
 }
 void Stepper::fastup()
 {
-    if (_speed > 0) {
+    if (_speed > 0)
+    {
         _speed += _accelSpeed;
-        if (_speed > _maxspeed) {
+        if (_speed > _maxspeed)
+        {
             _speed = _maxspeed;
         }
-    } else if (_speed < 0) {
+    }
+    else if (_speed < 0)
+    {
         _speed -= _accelSpeed;
-        if (_speed < -_maxspeed) {
+        if (_speed < -_maxspeed)
+        {
             _speed = -_maxspeed;
         }
-    } else {
+    }
+    else
+    {
         if (_targetPos > _currentPos)
             _speed += _accelSpeed;
         else
@@ -78,41 +90,52 @@ int32_t Stepper::calStopLength(int32_t speed)
 }
 bool Stepper::Run()
 {
-    if (!_isWaving) {
+    if (!_isWaving)
+    {
 
-        if (_speed == 0 && _targetPos == _currentPos) {
+        if (_speed == 0 && _targetPos == _currentPos)
+        {
 
             return true;
         }
         // 同向
         // 可能需要减速
-        else if (_speed >= 0 && _targetPos > _currentPos) {
-            if ((calStopLength(_speed) >= _targetPos - _currentPos)) {
+        else if (_speed >= 0 && _targetPos > _currentPos)
+        {
+            if ((calStopLength(_speed) >= _targetPos - _currentPos))
+            {
 
                 slowdown();
-            } else if (calStopLength(_speed + _accelSpeed) <= _targetPos - _currentPos) {
+            }
+            else if (calStopLength(_speed + _accelSpeed) <= _targetPos - _currentPos)
+            {
 
                 fastup();
             }
         }
         // 同向
         // 可能需要减速
-        else if (_speed <= 0 && _targetPos < _currentPos) {
-            if ((calStopLength(_speed) >= _currentPos - _targetPos)) {
+        else if (_speed <= 0 && _targetPos < _currentPos)
+        {
+            if ((calStopLength(_speed) >= _currentPos - _targetPos))
+            {
 
                 slowdown();
-            } else if (calStopLength(_speed - _accelSpeed) <= _currentPos - _targetPos) {
+            }
+            else if (calStopLength(_speed - _accelSpeed) <= _currentPos - _targetPos)
+            {
 
                 fastup();
             }
-
         }
         // 需要减速转向
-        else if (_speed < 0 && _targetPos >= _currentPos) {
+        else if (_speed < 0 && _targetPos >= _currentPos)
+        {
             slowdown();
         }
         // 需要减速转向
-        else if (_speed > 0 && _targetPos <= _currentPos) {
+        else if (_speed > 0 && _targetPos <= _currentPos)
+        {
             slowdown();
         }
 
@@ -125,68 +148,89 @@ bool Stepper::Run()
 
 void Stepper::spin(const int32_t &speed)
 {
-    if (speed == 0) {
+    if (speed == 0)
+    {
         _isWaving = false;
         return;
-    } else if (speed > 0) {
+    }
+    else if (speed > 0)
+    {
 
         TIM_TYPE t = GetUsTick();
 
-        switch (_entry) {
-            case 0:
+        switch (_entry)
+        {
+        case 0:
+            _stamp = t;
+            _entry = 1;
+            // 设置方向
+            HAL_GPIO_WritePin(_dirPort, _dirPin, _forward);
+            // 设置脉冲
+            HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_SET);
+            return;
+        case 1:
+            if ((TIM_TYPE)(t - _stamp) > _highTime)
+            {
                 _stamp = t;
-                _entry = 1;
-                // 设置方向
-                HAL_GPIO_WritePin(_dirPort, _dirPin, _forward);
-                // 设置脉冲
-                HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_SET);
-                return;
-            case 1:
-                if ((TIM_TYPE)(t - _stamp) > _highTime) {
-                    _stamp = t;
-                    _entry = 2;
+                _entry = 2;
 
-                    HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_RESET);
-                    _delayTime = (_highSpeedAttachTime + _highTime) * _maxspeed / (speed)-_highTime;
+                HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_RESET);
+                if (_accway == 0)
+                {
+                    _delayTime = (uint32_t)(_highSpeedAttachTime + _highTime) * _maxspeed / (speed)-_highTime;
                     _delayTime = (_delayTime > _maxAttachTime) ? _maxAttachTime : _delayTime;
                 }
-                return;
-            case 2:
-                if ((TIM_TYPE)(t - _stamp) > _delayTime) {
-                    _entry = 0;
-                    _currentPos++;
-                    _isWaving = false;
-                }
-                return;
+                else if (_accway == 1)
+                    _delayTime = (_maxAttachTime - _highSpeedAttachTime) / _maxspeed * (_maxspeed - speed) + _highSpeedAttachTime;
+            }
+            return;
+        case 2:
+            if ((TIM_TYPE)(t - _stamp) > _delayTime)
+            {
+                _entry = 0;
+                _currentPos++;
+                _isWaving = false;
+            }
+            return;
         }
-    } else {
+    }
+    else
+    {
         uint16_t t = GetUsTick();
 
-        switch (_entry) {
-            case 0:
+        switch (_entry)
+        {
+        case 0:
+            _stamp = t;
+            _entry = 1;
+            // 设置方向
+            HAL_GPIO_WritePin(_dirPort, _dirPin, _backward);
+            // 设置脉冲
+            HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_SET);
+            return;
+        case 1:
+            if ((TIM_TYPE)(t - _stamp) > _highTime)
+            {
                 _stamp = t;
-                _entry = 1;
-                // 设置方向
-                HAL_GPIO_WritePin(_dirPort, _dirPin, _backward);
-                // 设置脉冲
-                HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_SET);
-                return;
-            case 1:
-                if ((TIM_TYPE)(t - _stamp) > _highTime) {
-                    _stamp = t;
-                    _entry = 2;
-                    HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_RESET);
+                _entry = 2;
+                HAL_GPIO_WritePin(_pulPort, _pulPin, GPIO_PIN_RESET);
+                if (_accway == 0)
+                {
                     _delayTime = (_highSpeedAttachTime + _highTime) * _maxspeed / (-speed) - _highTime;
                     _delayTime = (_delayTime > _maxAttachTime) ? _maxAttachTime : _delayTime;
                 }
-                return;
-            case 2:
-                if ((TIM_TYPE)(t - _stamp) > _delayTime) {
-                    _entry = 0;
-                    _currentPos--;
-                    _isWaving = false;
-                }
-                return;
+                else if (_accway == 1)
+                    _delayTime = (_maxAttachTime - _highSpeedAttachTime) / _maxspeed * (_maxspeed + speed) + _highSpeedAttachTime;
+            }
+            return;
+        case 2:
+            if ((TIM_TYPE)(t - _stamp) > _delayTime)
+            {
+                _entry = 0;
+                _currentPos--;
+                _isWaving = false;
+            }
+            return;
         }
     }
 }
@@ -200,17 +244,28 @@ int32_t Stepper::GetSpeed()
 }
 void Stepper::SetReverse(bool value)
 {
-    if (value) {
-        _forward  = GPIO_PIN_SET;
+    if (value)
+    {
+        _forward = GPIO_PIN_SET;
         _backward = GPIO_PIN_RESET;
-    } else {
-        _forward  = GPIO_PIN_RESET;
+    }
+    else
+    {
+        _forward = GPIO_PIN_RESET;
         _backward = GPIO_PIN_SET;
     }
 }
-void Stepper::configure(const TIM_TYPE &hightime, const TIM_TYPE &highSpeedAttachTime, const TIM_TYPE &maxAttachTime)
+void Stepper::SetAcc(const uint32_t &acc)
 {
-    _highSpeedAttachTime = highSpeedAttachTime;
-    _highTime            = hightime;
-    _maxAttachTime       = maxAttachTime;
+    _accelSpeed = acc;
+}
+void Stepper::SetSpeed(TIM_TYPE hightime, TIM_TYPE lowtime, TIM_TYPE maxattachtime)
+{
+    _highTime = hightime;
+    _highSpeedAttachTime = lowtime;
+    _maxAttachTime = maxattachtime;
+}
+void Stepper::SetAccWay(uint8_t way)
+{
+    _accway = way;
 }
